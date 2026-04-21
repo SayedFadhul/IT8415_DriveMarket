@@ -5,7 +5,8 @@ require_once '../config/db.php';
 requireRole('admin');
 
 $conn = getConnection();
-$message = "";
+$message = '';
+$message_type = '';
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['delete_comment_id'])) {
     $delete_comment_id = (int) $_POST['delete_comment_id'];
@@ -16,8 +17,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['delete_comment_id']))
 
     if (mysqli_stmt_execute($delete_stmt)) {
         $message = "Comment removed successfully.";
+        $message_type = 'success';
     } else {
         $message = "Error removing comment.";
+        $message_type = 'error';
     }
 }
 
@@ -31,26 +34,48 @@ $result = mysqli_query($conn, $sql);
 include '../includes/header.php';
 ?>
 
-<h2>Manage Comments</h2>
+<div class="admin-manage-page">
+    <div class="form-hero admin-hero">
+        <span class="dashboard-badge">Admin Panel</span>
+        <h2>Manage Comments</h2>
+        <p>Review user comments across car listings and remove inappropriate content when necessary.</p>
+    </div>
 
-<p><?php echo htmlspecialchars($message); ?></p>
-
-<?php if (mysqli_num_rows($result) > 0): ?>
-    <?php while ($comment = mysqli_fetch_assoc($result)): ?>
-        <div style="border:1px solid #ccc; padding:15px; margin-bottom:15px; border-radius:8px;">
-            <p><strong>User:</strong> <?php echo htmlspecialchars($comment['username']); ?></p>
-            <p><strong>Car:</strong> <?php echo htmlspecialchars($comment['title']); ?></p>
-            <p><strong>Comment:</strong> <?php echo nl2br(htmlspecialchars($comment['comment_text'])); ?></p>
-            <p><strong>Date:</strong> <?php echo htmlspecialchars($comment['created_at']); ?></p>
-
-            <form method="POST" style="margin-top:10px;">
-                <input type="hidden" name="delete_comment_id" value="<?php echo $comment['comment_id']; ?>">
-                <button type="submit" onclick="return confirm('Are you sure you want to delete this comment?');">Delete Comment</button>
-            </form>
+    <?php if ($message !== ''): ?>
+        <div class="auth-message <?php echo $message_type === 'success' ? 'success' : 'error'; ?>">
+            <?php echo htmlspecialchars($message); ?>
         </div>
-    <?php endwhile; ?>
-<?php else: ?>
-    <p>No comments found.</p>
-<?php endif; ?>
+    <?php endif; ?>
+
+    <?php if ($result && mysqli_num_rows($result) > 0): ?>
+        <div class="admin-comments-list">
+            <?php while ($comment = mysqli_fetch_assoc($result)): ?>
+                <div class="admin-comment-card">
+                    <div class="admin-comment-top">
+                        <div>
+                            <h3><?php echo htmlspecialchars($comment['username']); ?></h3>
+                            <p class="admin-comment-car">On: <?php echo htmlspecialchars($comment['title']); ?></p>
+                        </div>
+                        <span class="admin-comment-date"><?php echo htmlspecialchars($comment['created_at']); ?></span>
+                    </div>
+
+                    <div class="admin-comment-body">
+                        <p><?php echo nl2br(htmlspecialchars($comment['comment_text'])); ?></p>
+                    </div>
+
+                    <form method="POST" class="inline-action-form" style="margin-top: 14px;">
+                        <input type="hidden" name="delete_comment_id" value="<?php echo $comment['comment_id']; ?>">
+                        <button type="submit" class="danger-btn" onclick="return confirm('Are you sure you want to delete this comment?');">Delete Comment</button>
+                    </form>
+                </div>
+            <?php endwhile; ?>
+        </div>
+    <?php else: ?>
+        <div class="empty-state-box">
+            <h3>No comments found</h3>
+            <p>There are currently no comments in the system.</p>
+        </div>
+    <?php endif; ?>
+</div>
 
 <?php include '../includes/footer.php'; ?>
