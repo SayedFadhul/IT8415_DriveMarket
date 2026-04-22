@@ -76,7 +76,7 @@ include 'includes/header.php';
             <div class="auth-message success"><?php echo htmlspecialchars($success); ?></div>
         <?php endif; ?>
 
-        <form method="POST" class="auth-form">
+        <form method="POST" class="auth-form" id="registerForm" novalidate>
             <div class="auth-field">
                 <label for="username">Username</label>
                 <input type="text" name="username" id="username" value="<?php echo htmlspecialchars($username); ?>" required>

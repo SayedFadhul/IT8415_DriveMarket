@@ -2,7 +2,7 @@
 require_once 'config/db.php';
 $conn = getConnection();
 
-$limit = 10;
+$limit = 9;
 $page = isset($_GET['page']) && (int) $_GET['page'] > 0 ? (int) $_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 

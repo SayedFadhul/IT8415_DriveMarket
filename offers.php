@@ -18,7 +18,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $offer_message_value = isset($_POST['message']) ? trim($_POST['message']) : '';
     $offer_amount = (float) $offer_amount_value;
 
-    if ($selected_car_id <= 0 || $offer_amount <= 0) {
+    if (mb_strlen($offer_message_value) > 500) {
+        $message = "Offer message is too long.";
+        $message_type = 'error';
+    } elseif (!is_numeric($offer_amount_value) || $offer_amount <= 0 || $offer_amount > 999999.99) {
+        $message = "Offer amount must be between 0.01 and 999999.99.";
+        $message_type = 'error';
+    } elseif ($selected_car_id <= 0) {
         $message = "Please select a car and enter a valid offer amount.";
         $message_type = 'error';
     } else {
@@ -32,22 +38,42 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (!$car_data) {
             $message = "Selected car was not found.";
             $message_type = 'error';
-        } elseif ((int)$car_data['creator_id'] === (int)$_SESSION['user_id']) {
+        } elseif ((int) $car_data['creator_id'] === (int) $_SESSION['user_id']) {
             $message = "You cannot make an offer on your own car.";
             $message_type = 'error';
         } else {
-            $insert_sql = "INSERT INTO dbProj_offers (car_id, user_id, offer_amount, message) VALUES (?, ?, ?, ?)";
-            $insert_stmt = mysqli_prepare($conn, $insert_sql);
-            mysqli_stmt_bind_param($insert_stmt, "iids", $selected_car_id, $_SESSION['user_id'], $offer_amount, $offer_message_value);
+            $duplicate_sql = "SELECT offer_id FROM dbProj_offers WHERE car_id = ? AND user_id = ?";
+            $duplicate_stmt = mysqli_prepare($conn, $duplicate_sql);
+            mysqli_stmt_bind_param($duplicate_stmt, "ii", $selected_car_id, $_SESSION['user_id']);
+            mysqli_stmt_execute($duplicate_stmt);
+            $duplicate_result = mysqli_stmt_get_result($duplicate_stmt);
 
-            if (mysqli_stmt_execute($insert_stmt)) {
-                $message = "Offer submitted successfully.";
-                $message_type = 'success';
-                $offer_amount_value = '';
-                $offer_message_value = '';
-            } else {
-                $message = "Error submitting offer.";
+            if (mysqli_num_rows($duplicate_result) > 0) {
+                $message = "You have already made an offer on this car.";
                 $message_type = 'error';
+            } else {
+                $insert_sql = "INSERT INTO dbProj_offers (car_id, user_id, offer_amount, message) VALUES (?, ?, ?, ?)";
+                $insert_stmt = mysqli_prepare($conn, $insert_sql);
+                mysqli_stmt_bind_param($insert_stmt, "iids", $selected_car_id, $_SESSION['user_id'], $offer_amount, $offer_message_value);
+
+                try {
+                    if (mysqli_stmt_execute($insert_stmt)) {
+                        $message = "Offer submitted successfully.";
+                        $message_type = 'success';
+                        $offer_amount_value = '';
+                        $offer_message_value = '';
+                    } else {
+                        $message = "Error submitting offer.";
+                        $message_type = 'error';
+                    }
+                } catch (Throwable $e) {
+                    if (stripos($e->getMessage(), 'already made an offer') !== false) {
+                        $message = "You have already made an offer on this car.";
+                    } else {
+                        $message = "Error submitting offer.";
+                    }
+                    $message_type = 'error';
+                }
             }
         }
     }
@@ -126,12 +152,12 @@ include 'includes/header.php';
 
             <div class="form-field">
                 <label for="offer_amount">Offer Amount (BHD)</label>
-                <input type="number" step="0.01" min="0.01" name="offer_amount" id="offer_amount" value="<?php echo htmlspecialchars($offer_amount_value); ?>" required>
+                <input type="number" step="0.01" min="0.01" max="999999.99" name="offer_amount" id="offer_amount" value="<?php echo htmlspecialchars($offer_amount_value); ?>" required>
             </div>
 
             <div class="form-field form-field-full">
                 <label for="message">Message</label>
-                <textarea name="message" id="message" rows="4"><?php echo htmlspecialchars($offer_message_value); ?></textarea>
+                <textarea name="message" id="message" rows="4" maxlength="500"><?php echo htmlspecialchars($offer_message_value); ?></textarea>
             </div>
 
             <div class="form-field form-field-full">

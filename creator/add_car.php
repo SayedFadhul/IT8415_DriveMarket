@@ -15,15 +15,51 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $full_description = trim($_POST['full_description'] ?? '');
     $brand = trim($_POST['brand'] ?? '');
     $model = trim($_POST['model'] ?? '');
-    $car_year = (int) ($_POST['car_year'] ?? 0);
-    $price = (float) ($_POST['price'] ?? 0);
+    $year_raw = trim($_POST['car_year'] ?? '');
+    $price_raw = trim($_POST['price'] ?? '');
     $image_url = trim($_POST['image'] ?? '');
     $status = $_POST['status'] ?? 'draft';
+
+    $car_year = (int) $year_raw;
+    $price = (float) $price_raw;
+
+    if (
+        mb_strlen($title) > 120 ||
+        mb_strlen($short_description) > 180 ||
+        mb_strlen($full_description) > 2000 ||
+        mb_strlen($brand) > 60 ||
+        mb_strlen($model) > 60 ||
+        mb_strlen($image_url) > 255
+    ) {
+        $message = "One or more fields are too long.";
+        $message_type = 'error';
+    } elseif ($image_url !== '' && filter_var($image_url, FILTER_VALIDATE_URL) === false) {
+        $message = "Please enter a valid image URL.";
+        $message_type = 'error';
+    } elseif (!preg_match('/^\d{4}$/', $year_raw) || $car_year < 1900 || $car_year > 2099) {
+        $message = "Year must be exactly 4 digits between 1900 and 2099.";
+        $message_type = 'error';
+    } elseif (!is_numeric($price_raw) || $price <= 0 || $price > 999999.99) {
+        $message = "Price must be a valid amount between 0.01 and 999999.99.";
+        $message_type = 'error';
+    } elseif (
+        $title === '' ||
+        $short_description === '' ||
+        $full_description === '' ||
+        $brand === '' ||
+        $model === ''
+    ) {
+        $message = "Please fill in all fields correctly.";
+        $message_type = 'error';
+    } elseif (!in_array($status, ['draft', 'published'])) {
+        $message = "Invalid status selected.";
+        $message_type = 'error';
+    }
 
     $image_value = $image_url;
     $final_image = $image_url;
 
-    if (isset($_FILES['image_file']) && $_FILES['image_file']['error'] === 0) {
+    if ($message === '' && isset($_FILES['image_file']) && $_FILES['image_file']['error'] === 0) {
         $upload_dir = realpath(__DIR__ . '/../assets/uploads');
         if ($upload_dir === false) {
             $upload_dir = __DIR__ . '/../assets/uploads';
@@ -61,46 +97,32 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     if ($message === '') {
-        if (
-                $title !== '' &&
-                $short_description !== '' &&
-                $full_description !== '' &&
-                $brand !== '' &&
-                $model !== '' &&
-                $car_year > 0 &&
-                $price > 0 &&
-                in_array($status, ['draft', 'published'])
-        ) {
-            $sql = "INSERT INTO dbProj_cars
-                    (creator_id, title, short_description, full_description, brand, model, car_year, price, image, status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO dbProj_cars
+                (creator_id, title, short_description, full_description, brand, model, car_year, price, image, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-            $stmt = mysqli_prepare($conn, $sql);
-            mysqli_stmt_bind_param(
-                    $stmt,
-                    "isssssidss",
-                    $_SESSION['user_id'],
-                    $title,
-                    $short_description,
-                    $full_description,
-                    $brand,
-                    $model,
-                    $car_year,
-                    $price,
-                    $final_image,
-                    $status
-            );
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param(
+            $stmt,
+            "isssssidss",
+            $_SESSION['user_id'],
+            $title,
+            $short_description,
+            $full_description,
+            $brand,
+            $model,
+            $car_year,
+            $price,
+            $final_image,
+            $status
+        );
 
-            if (mysqli_stmt_execute($stmt)) {
-                $message = "Car listing added successfully.";
-                $message_type = 'success';
-                $image_value = '';
-            } else {
-                $message = "Error adding car listing.";
-                $message_type = 'error';
-            }
+        if (mysqli_stmt_execute($stmt)) {
+            $message = "Car listing added successfully.";
+            $message_type = 'success';
+            $image_value = '';
         } else {
-            $message = "Please fill in all fields correctly.";
+            $message = "Error adding car listing.";
             $message_type = 'error';
         }
     }
@@ -123,20 +145,20 @@ include '../includes/header.php';
             </div>
         <?php endif; ?>
 
-        <form method="POST" enctype="multipart/form-data" class="car-form-grid">
+        <form method="POST" enctype="multipart/form-data" class="car-form-grid carValidationForm" novalidate>
             <div class="form-field">
                 <label for="title">Title</label>
-                <input type="text" name="title" id="title" required>
+                <input type="text" name="title" id="title" maxlength="120" required>
             </div>
 
             <div class="form-field">
                 <label for="brand">Brand</label>
-                <input type="text" name="brand" id="brand" required>
+                <input type="text" name="brand" id="brand" maxlength="60" required>
             </div>
 
             <div class="form-field">
                 <label for="model">Model</label>
-                <input type="text" name="model" id="model" required>
+                <input type="text" name="model" id="model" maxlength="60" required>
             </div>
 
             <div class="form-field">
@@ -146,7 +168,7 @@ include '../includes/header.php';
 
             <div class="form-field">
                 <label for="price">Price</label>
-                <input type="number" step="0.01" name="price" id="price" required>
+                <input type="number" step="0.01" min="0.01" max="999999.99" name="price" id="price" required>
             </div>
 
             <div class="form-field">
@@ -159,17 +181,17 @@ include '../includes/header.php';
 
             <div class="form-field form-field-full">
                 <label for="short_description">Short Description</label>
-                <input type="text" name="short_description" id="short_description" required>
+                <input type="text" name="short_description" id="short_description" maxlength="180" required>
             </div>
 
             <div class="form-field form-field-full">
                 <label for="full_description">Full Description</label>
-                <textarea name="full_description" id="full_description" rows="6" required></textarea>
+                <textarea name="full_description" id="full_description" rows="6" maxlength="2000" required></textarea>
             </div>
 
             <div class="form-field form-field-full">
                 <label for="image">Image URL</label>
-                <input type="url" name="image" id="image" placeholder="https://example.com/car.jpg" value="<?php echo htmlspecialchars($image_value); ?>">
+                <input type="url" name="image" id="image" maxlength="255" placeholder="https://example.com/car.jpg" value="<?php echo htmlspecialchars($image_value); ?>">
             </div>
 
             <div class="form-field form-field-full">
@@ -183,5 +205,9 @@ include '../includes/header.php';
         </form>
     </div>
 </div>
+
+<p style="margin-top: 20px;">
+    <a href="creator_dashboard.php" class="back-link">Return to Creator Dashboard</a>
+</p>
 
 <?php include '../includes/footer.php'; ?>

@@ -23,7 +23,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $today = date('Y-m-d');
     $current_time = date('H:i');
 
-    if ($selected_car_id <= 0 || $appointment_date_value === '' || $appointment_time_value === '') {
+    if (mb_strlen($notes_value) > 500) {
+        $message = "Notes are too long.";
+        $message_type = 'error';
+    } elseif ($selected_car_id <= 0 || $appointment_date_value === '' || $appointment_time_value === '') {
         $message = "Please select a car, date, and time.";
         $message_type = 'error';
     } elseif ($appointment_date_value < $today) {
@@ -43,7 +46,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (!$car_data) {
             $message = "Selected car was not found.";
             $message_type = 'error';
-        } elseif ((int)$car_data['creator_id'] === (int)$_SESSION['user_id']) {
+        } elseif ((int) $car_data['creator_id'] === (int) $_SESSION['user_id']) {
             $message = "You cannot book a test drive for your own car.";
             $message_type = 'error';
         } else {
@@ -59,20 +62,46 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $message = "This test drive slot is already booked. Please choose another time.";
                 $message_type = 'error';
             } else {
-                $insert_sql = "INSERT INTO dbProj_appointments (car_id, user_id, appointment_date, appointment_time, notes)
-                               VALUES (?, ?, ?, ?, ?)";
-                $insert_stmt = mysqli_prepare($conn, $insert_sql);
-                mysqli_stmt_bind_param($insert_stmt, "iisss", $selected_car_id, $_SESSION['user_id'], $appointment_date_value, $appointment_time_value, $notes_value);
+                $duplicate_sql = "SELECT appointment_id
+                                  FROM dbProj_appointments
+                                  WHERE car_id = ? AND user_id = ?";
+                $duplicate_stmt = mysqli_prepare($conn, $duplicate_sql);
+                mysqli_stmt_bind_param($duplicate_stmt, "ii", $selected_car_id, $_SESSION['user_id']);
+                mysqli_stmt_execute($duplicate_stmt);
+                $duplicate_result = mysqli_stmt_get_result($duplicate_stmt);
 
-                if (mysqli_stmt_execute($insert_stmt)) {
-                    $message = "Test drive booked successfully.";
-                    $message_type = 'success';
-                    $appointment_date_value = '';
-                    $appointment_time_value = '';
-                    $notes_value = '';
-                } else {
-                    $message = "Error booking the test drive.";
+                if (mysqli_num_rows($duplicate_result) > 0) {
+                    $message = "You have already booked a test drive for this car.";
                     $message_type = 'error';
+                } else {
+                    $insert_sql = "INSERT INTO dbProj_appointments (car_id, user_id, appointment_date, appointment_time, notes)
+                                   VALUES (?, ?, ?, ?, ?)";
+                    $insert_stmt = mysqli_prepare($conn, $insert_sql);
+                    mysqli_stmt_bind_param($insert_stmt, "iisss", $selected_car_id, $_SESSION['user_id'], $appointment_date_value, $appointment_time_value, $notes_value);
+
+                    try {
+                        if (mysqli_stmt_execute($insert_stmt)) {
+                            $message = "Test drive booked successfully.";
+                            $message_type = 'success';
+                            $appointment_date_value = '';
+                            $appointment_time_value = '';
+                            $notes_value = '';
+                        } else {
+                            $message = "Error booking the test drive.";
+                            $message_type = 'error';
+                        }
+                    } catch (Throwable $e) {
+                        $error_text = $e->getMessage();
+
+                        if (stripos($error_text, 'already booked') !== false) {
+                            $message = "This test drive slot is already booked. Please choose another time.";
+                        } elseif (stripos($error_text, 'already booked a test drive for this car') !== false) {
+                            $message = "You have already booked a test drive for this car.";
+                        } else {
+                            $message = "Error booking the test drive.";
+                        }
+                        $message_type = 'error';
+                    }
                 }
             }
         }
@@ -135,7 +164,7 @@ include 'includes/header.php';
 
         <h3 class="section-title-small">Book a Test Drive</h3>
 
-        <form method="POST" class="car-form-grid">
+        <form method="POST" class="car-form-grid" id="appointmentForm" novalidate>
             <div class="form-field form-field-full">
                 <label for="car_id">Select Car</label>
                 <select name="car_id" id="car_id" required>
@@ -162,7 +191,7 @@ include 'includes/header.php';
 
             <div class="form-field form-field-full">
                 <label for="notes">Notes</label>
-                <textarea name="notes" id="notes" rows="4"><?php echo htmlspecialchars($notes_value); ?></textarea>
+                <textarea name="notes" id="notes" rows="4" maxlength="500"><?php echo htmlspecialchars($notes_value); ?></textarea>
             </div>
 
             <div class="form-field form-field-full">

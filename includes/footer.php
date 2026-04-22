@@ -22,6 +22,6 @@
         </div>
     </div>
 </footer>
-
+<script src="/~u202301830/DriveMarket/assets/js/validation.js"></script>
 </body>
 </html>

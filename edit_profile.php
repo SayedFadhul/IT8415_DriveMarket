@@ -110,7 +110,7 @@ include 'includes/header.php';
             </div>
         <?php endif; ?>
 
-        <form method="POST" class="auth-form">
+        <form method="POST" class="auth-form" id="editProfileForm" novalidate>
             <div class="auth-field">
                 <label for="username">Username</label>
                 <input type="text" name="username" id="username" value="<?php echo htmlspecialchars($username); ?>" required>

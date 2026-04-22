@@ -88,5 +88,7 @@ include '../includes/header.php';
         </div>
     <?php endif; ?>
 </div>
-
+<p style="margin-top: 20px;">
+    <a href="admin_dashboard.php" class="back-link">Return to Admin Dashboard</a>
+</p>
 <?php include '../includes/footer.php'; ?>

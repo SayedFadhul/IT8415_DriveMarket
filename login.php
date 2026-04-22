@@ -57,7 +57,7 @@ include 'includes/header.php';
             <div class="auth-message error"><?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
 
-        <form method="POST" class="auth-form">
+        <form method="POST" class="auth-form" id="loginForm" novalidate>
             <div class="auth-field">
                 <label for="login_input">Username or Email</label>
                 <input type="text" name="login_input" id="login_input" required>

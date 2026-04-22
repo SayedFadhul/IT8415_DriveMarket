@@ -1,6 +1,8 @@
 <?php
 require_once 'config/db.php';
 $conn = getConnection();
+$creator_list_sql = "SELECT user_id, username FROM dbProj_users WHERE role = 'creator' ORDER BY username ASC";
+$creator_list_result = mysqli_query($conn, $creator_list_sql);
 
 $title = isset($_GET['title']) ? trim($_GET['title']) : '';
 $date_from = isset($_GET['date_from']) ? trim($_GET['date_from']) : '';
@@ -8,8 +10,8 @@ $date_to = isset($_GET['date_to']) ? trim($_GET['date_to']) : '';
 $creator = isset($_GET['creator']) ? trim($_GET['creator']) : '';
 $min_rating = isset($_GET['min_rating']) ? trim($_GET['min_rating']) : '';
 
-$limit = 10;
-$page = isset($_GET['page']) && (int)$_GET['page'] > 0 ? (int)$_GET['page'] : 1;
+$limit = 9;
+$page = isset($_GET['page']) && (int) $_GET['page'] > 0 ? (int) $_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 
 $base_sql = " FROM dbProj_cars c
@@ -39,9 +41,9 @@ if ($date_to !== "") {
 }
 
 if ($creator !== "") {
-    $base_sql .= " AND u.username LIKE ?";
-    $params[] = "%" . $creator . "%";
-    $types .= "s";
+    $base_sql .= " AND u.user_id = ?";
+    $params[] = (int) $creator;
+    $types .= "i";
 }
 
 $group_having = " GROUP BY c.car_id";
@@ -63,15 +65,15 @@ if (!empty($params)) {
 mysqli_stmt_execute($count_stmt);
 $count_result = mysqli_stmt_get_result($count_stmt);
 $count_row = mysqli_fetch_assoc($count_result);
-$total_records = (int)$count_row['total'];
+$total_records = (int) $count_row['total'];
 $total_pages = ceil($total_records / $limit);
 
 $search_sql = "SELECT c.*, u.username,
                       AVG(r.rating_value) AS avg_rating,
                       COUNT(r.rating_id) AS total_ratings"
-              . $base_sql
-              . $group_having .
-              " ORDER BY c.created_at DESC
+        . $base_sql
+        . $group_having .
+        " ORDER BY c.created_at DESC
                 LIMIT ? OFFSET ?";
 
 $search_stmt = mysqli_prepare($conn, $search_sql);
@@ -110,7 +112,16 @@ include 'includes/header.php';
 
             <div>
                 <label for="creator">Creator Username</label>
-                <input type="text" name="creator" id="creator" value="<?php echo htmlspecialchars($creator); ?>">
+                <select name="creator" id="creator">
+                    <option value="">All Creators</option>
+                    <?php if ($creator_list_result && mysqli_num_rows($creator_list_result) > 0): ?>
+                        <?php while ($creator_row = mysqli_fetch_assoc($creator_list_result)): ?>
+                            <option value="<?php echo $creator_row['user_id']; ?>" <?php if ($creator == $creator_row['user_id']) echo 'selected'; ?>>
+                                <?php echo htmlspecialchars($creator_row['username']); ?>
+                            </option>
+                        <?php endwhile; ?>
+                    <?php endif; ?>
+                </select>
             </div>
 
             <div>
@@ -158,7 +169,7 @@ include 'includes/header.php';
                             <?php
                             if ($car['total_ratings'] > 0) {
                                 echo number_format($car['avg_rating'], 1) . " / 5";
-                                echo " (" . (int)$car['total_ratings'] . " ratings)";
+                                echo " (" . (int) $car['total_ratings'] . " ratings)";
                             } else {
                                 echo "No ratings yet";
                             }
@@ -179,7 +190,7 @@ include 'includes/header.php';
                 $query_params = $_GET;
                 if ($page > 1):
                     $query_params['page'] = $page - 1;
-                ?>
+                    ?>
                     <a href="search.php?<?php echo htmlspecialchars(http_build_query($query_params)); ?>" class="pagination-link">Previous</a>
                 <?php endif; ?>
 
@@ -190,9 +201,10 @@ include 'includes/header.php';
                     </a>
                 <?php endfor; ?>
 
-                <?php if ($page < $total_pages):
+                <?php
+                if ($page < $total_pages):
                     $query_params['page'] = $page + 1;
-                ?>
+                    ?>
                     <a href="search.php?<?php echo htmlspecialchars(http_build_query($query_params)); ?>" class="pagination-link">Next</a>
                 <?php endif; ?>
             </div>

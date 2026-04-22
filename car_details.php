@@ -15,17 +15,22 @@ $message = '';
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_SESSION['user_id'])) {
     if (isset($_POST['comment_text'])) {
-        $comment_text = trim($_POST['comment_text']);
+        $comment_text = trim($_POST['comment_text'] ?? '');
 
-        if ($comment_text !== "") {
+        if (mb_strlen($comment_text) > 500) {
+            $message = "Comment is too long.";
+        } elseif ($comment_text === '') {
+            $message = "Comment cannot be empty.";
+        } else {
             $insert_sql = "INSERT INTO dbProj_comments (car_id, user_id, comment_text) VALUES (?, ?, ?)";
             $insert_stmt = mysqli_prepare($conn, $insert_sql);
             mysqli_stmt_bind_param($insert_stmt, "iis", $car_id, $_SESSION['user_id'], $comment_text);
             mysqli_stmt_execute($insert_stmt);
             $message = "Comment added successfully.";
-        } else {
-            $message = "Comment cannot be empty.";
         }
+
+        header("Location: car_details.php?id=" . $car_id . "&msg=" . urlencode($message));
+        exit();
     }
 
     if (isset($_POST['rating_value'])) {
@@ -47,7 +52,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_SESSION['user_id'])) {
             } else {
                 $insert_rating_sql = "INSERT INTO dbProj_ratings (car_id, user_id, rating_value) VALUES (?, ?, ?)";
                 $insert_rating_stmt = mysqli_prepare($conn, $insert_rating_sql);
-                mysqli_stmt_bind_param($insert_rating_stmt, "iii", $car_id, $_SESSION['user_id'], $rating_value);
+                mysqli_stmt_bind_param($insert_rating_stmt, "iii", $rating_value, $car_id, $_SESSION['user_id']);
                 mysqli_stmt_execute($insert_rating_stmt);
                 $message = "Rating submitted successfully.";
             }
@@ -56,12 +61,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_SESSION['user_id'])) {
             exit();
         } else {
             $message = "Please select a valid rating.";
+            header("Location: car_details.php?id=" . $car_id . "&msg=" . urlencode($message));
+            exit();
         }
-    }
-
-    if ($message !== '') {
-        header("Location: car_details.php?id=" . $car_id . "&msg=" . urlencode($message));
-        exit();
     }
 }
 
@@ -219,7 +221,7 @@ include 'includes/header.php';
             <?php if (isset($_SESSION['user_id'])): ?>
                 <h3>Add Comment</h3>
                 <form method="POST" class="car-comment-form">
-                    <textarea name="comment_text" rows="4" required placeholder="Write your comment here..."></textarea>
+                    <textarea name="comment_text" rows="4" maxlength="500" required placeholder="Write your comment here..."></textarea>
                     <button type="submit">Post Comment</button>
                 </form>
             <?php else: ?>
