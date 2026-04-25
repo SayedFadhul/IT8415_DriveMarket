@@ -135,6 +135,13 @@ For example, if you use XAMPP, place it inside:
 htdocs
 ```
 
+the path is:
+
+```text
+C:\xampp\htdocs
+```
+
+
 If your environment uses a university server (PHPAdmin) path or another local server path, keep it in the correct location for that setup.
 
 ---
