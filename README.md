@@ -141,6 +141,19 @@ If your environment uses a university server (PHPAdmin) path or another local se
 
 ### 7. Run the Project from NetBeans
 
+Make sure the Run Configuration is set to run as **Local Web Site**,
+ and the **Project URL** is set to:
+ 
+```text
+http://localhost/IT8415_DriveMarket-main/
+```
+
+Index File should be :
+
+```text
+index.php
+```
+
 1. In **Apache NetBeans IDE 29**, right-click the project.
 2. Choose **Run**.
 3. NetBeans will open the project in your browser.
